@@ -5,6 +5,7 @@ import br.ifg.urutai.sdapientrega.dto.AtualizarStatusDTO;
 import br.ifg.urutai.sdapientrega.dto.PedidoEntregaRequestDTO;
 import br.ifg.urutai.sdapientrega.dto.PedidoEntregaResponseDTO;
 import br.ifg.urutai.sdapientrega.service.PedidoEntregaService;
+import br.ifg.urutai.sdapientrega.service.PedidoEmEntregaCacheService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -41,6 +42,9 @@ public class PedidoEntregaController {
 
     @Autowired
     private PedidoEntregaService pedidoService;
+
+    @Autowired
+    private PedidoEmEntregaCacheService cacheService;
 
     /**
      * Cria um novo pedido de entrega.
@@ -176,6 +180,111 @@ public class PedidoEntregaController {
         response.put("mensagem", "Recebimento do pedido confirmado com sucesso");
         response.put("pedido", pedido);
         
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Lista todos os pedidos que estão em entrega.
+     * Retorna pedidos armazenados no cache de entregas em andamento.
+     *
+     * @return resposta com lista de pedidos em entrega
+     */
+    @GetMapping("/em-entrega/lista")
+    @Operation(
+            summary = "Listar pedidos em entrega",
+            description = "Retorna uma lista de todos os pedidos que estão sendo entregues no momento (status SAIU_PARA_ENTREGA ou ENTREGUE)"
+    )
+    @ApiResponse(responseCode = "200", description = "Lista de pedidos em entrega retornada com sucesso",
+            content = @Content(mediaType = "application/json", schema = @Schema(implementation = PedidoEntregaResponseDTO.class)))
+    public ResponseEntity<List<PedidoEntregaResponseDTO>> listarPedidosEmEntrega() {
+
+        log.info("Requisição para listar pedidos em entrega");
+
+        List<PedidoEntregaResponseDTO> pedidosEmEntrega = cacheService.obterTodosPedidosEmEntregaDTO();
+
+        return ResponseEntity.ok(pedidosEmEntrega);
+    }
+
+    /**
+     * Obtém estatísticas dos pedidos em entrega.
+     * Retorna informações como quantidade total e IDs dos pedidos.
+     *
+     * @return resposta com estatísticas dos pedidos em entrega
+     */
+    @GetMapping("/em-entrega/estatisticas")
+    @Operation(
+            summary = "Obter estatísticas de pedidos em entrega",
+            description = "Retorna estatísticas dos pedidos que estão sendo entregues"
+    )
+    @ApiResponse(responseCode = "200", description = "Estatísticas retornadas com sucesso")
+    public ResponseEntity<Map<String, Object>> obterEstatisticasPedidosEmEntrega() {
+
+        log.info("Requisição para obter estatísticas de pedidos em entrega");
+
+        List<PedidoEntregaResponseDTO> pedidosEmEntrega = cacheService.obterTodosPedidosEmEntregaDTO();
+
+        Map<String, Object> estatisticas = new HashMap<>();
+        estatisticas.put("total", pedidosEmEntrega.size());
+        estatisticas.put("pedidos", pedidosEmEntrega);
+
+        return ResponseEntity.ok(estatisticas);
+    }
+
+    /**
+     * Verifica se um pedido específico está em entrega.
+     *
+     * @param id ID do pedido
+     * @return resposta com status de entrega do pedido
+     */
+    @GetMapping("/{id}/em-entrega")
+    @Operation(
+            summary = "Verificar se pedido está em entrega",
+            description = "Verifica se um pedido específico está sendo entregue no momento"
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Status de entrega do pedido retornado com sucesso"),
+            @ApiResponse(responseCode = "404", description = "Pedido não encontrado")
+    })
+    public ResponseEntity<Map<String, Object>> verificarSePedidoEmEntrega(
+            @Parameter(description = "ID do pedido", required = true, example = "1")
+            @PathVariable Long id) {
+
+        log.info("Requisição para verificar se pedido ID {} está em entrega", id);
+
+        // Verifica se existe
+        pedidoService.buscarPorId(id);
+
+        boolean emEntrega = cacheService.estaPedidoEmEntrega(id);
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("pedidoId", id);
+        response.put("emEntrega", emEntrega);
+
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Sincroniza o cache de pedidos em entrega com o banco de dados.
+     * Endpoint útil para recuperar-se de inconsistências.
+     *
+     * @return resposta com mensagem de sucesso
+     */
+    @PostMapping("/em-entrega/sincronizar")
+    @Operation(
+            summary = "Sincronizar cache de pedidos em entrega",
+            description = "Sincroniza o cache de pedidos em entrega com o banco de dados. Útil para recuperar de inconsistências."
+    )
+    @ApiResponse(responseCode = "200", description = "Cache sincronizado com sucesso")
+    public ResponseEntity<Map<String, Object>> sincronizarCachePedidosEmEntrega() {
+
+        log.info("Requisição para sincronizar cache de pedidos em entrega");
+
+        cacheService.sincronizarCacheComBanco();
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("mensagem", "Cache de pedidos em entrega sincronizado com sucesso");
+        response.put("total", cacheService.obterQuantidadePedidosEmEntrega());
+
         return ResponseEntity.ok(response);
     }
 }

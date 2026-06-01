@@ -1,6 +1,13 @@
 package br.ifg.urutai.sdapientrega.config;
 
-import org.springframework.amqp.core.*;
+import org.springframework.amqp.core.Binding;
+import org.springframework.amqp.core.BindingBuilder;
+import org.springframework.amqp.core.Queue;
+import org.springframework.amqp.core.QueueBuilder;
+import org.springframework.amqp.core.TopicExchange;
+import org.springframework.amqp.rabbit.connection.ConnectionFactory;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.amqp.support.converter.Jackson2JsonMessageConverter;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -17,23 +24,53 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class RabbitMQConfig {
 
-    // Exchange
+    // Exchanges
     @Value("${rabbitmq.exchange.entrega}")
     private String exchangeEntrega;
 
-    // Filas
+    @Value("${rabbitmq.exchange.pedidos}")
+    private String exchangePedidos;
+
+    // Filas de saída
     @Value("${rabbitmq.queue.notificacao}")
     private String queueNotificacao;
 
     @Value("${rabbitmq.queue.status}")
     private String queueStatus;
 
-    // Routing Keys
+    // Fila de entrada (recebimento de pedidos)
+    @Value("${rabbitmq.queue.pedido-novo}")
+    private String queuePedidoNovo;
+
+    // Routing Keys de saída
     @Value("${rabbitmq.routing-key.notificacao}")
     private String routingKeyNotificacao;
 
     @Value("${rabbitmq.routing-key.status}")
     private String routingKeyStatus;
+
+    // Routing Key de entrada
+    @Value("${rabbitmq.routing-key.pedido-novo}")
+    private String routingKeyPedidoNovo;
+
+    /**
+     * Converte mensagens para/de JSON usando Jackson.
+     * Necessário para serializar/deserializar DTOs no RabbitMQ.
+     */
+    @Bean
+    public Jackson2JsonMessageConverter messageConverter() {
+        return new Jackson2JsonMessageConverter();
+    }
+
+    /**
+     * Configura o RabbitTemplate com o conversor JSON.
+     */
+    @Bean
+    public RabbitTemplate rabbitTemplate(ConnectionFactory connectionFactory) {
+        RabbitTemplate template = new RabbitTemplate(connectionFactory);
+        template.setMessageConverter(messageConverter());
+        return template;
+    }
 
     /**
      * Define o exchange do tipo Topic para o domínio de entrega.
@@ -42,6 +79,15 @@ public class RabbitMQConfig {
     @Bean
     public TopicExchange exchangeEntrega() {
         return new TopicExchange(exchangeEntrega, true, false);
+    }
+
+    /**
+     * Define o exchange do tipo Topic para recebimento de pedidos.
+     * Este exchange é publicado pelo serviço de Pedidos (sd-api-pedido).
+     */
+    @Bean
+    public TopicExchange exchangePedidos() {
+        return new TopicExchange(exchangePedidos, true, false);
     }
 
     /**
@@ -65,6 +111,15 @@ public class RabbitMQConfig {
     }
 
     /**
+     * Fila para recebimento de novos pedidos vindos do serviço de Pedidos.
+     * Mensagens publicadas com routing key "pedido.criado" chegam aqui.
+     */
+    @Bean
+    public Queue queuePedidoNovo() {
+        return QueueBuilder.durable(queuePedidoNovo).build();
+    }
+
+    /**
      * Binding entre a fila de notificação e o exchange.
      * Rota mensagens com a chave "entrega.notificacao.*"
      */
@@ -84,5 +139,16 @@ public class RabbitMQConfig {
         return BindingBuilder.bind(queueStatus)
                 .to(exchangeEntrega)
                 .with(routingKeyStatus);
+    }
+
+    /**
+     * Binding entre a fila de pedidos novos e o exchange de pedidos.
+     * Escuta mensagens com routing key "pedido.criado" do serviço de Pedidos.
+     */
+    @Bean
+    public Binding bindingPedidoNovo(Queue queuePedidoNovo, TopicExchange exchangePedidos) {
+        return BindingBuilder.bind(queuePedidoNovo)
+                .to(exchangePedidos)
+                .with(routingKeyPedidoNovo);
     }
 }
