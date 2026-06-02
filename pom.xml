@@ -10,7 +10,7 @@
     </parent>
     <groupId>br.ifg.urutai</groupId>
     <artifactId>sd-api-entrega</artifactId>
-    <version>0.0.1-SNAPSHOT</version>
+    <version>1.0.0</version>
     <name>sd-api-entrega</name>
     <description>sd-api-entrega</description>
     <url/>
