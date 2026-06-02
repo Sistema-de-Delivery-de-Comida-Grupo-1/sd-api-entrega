@@ -19,15 +19,12 @@ import br.ifg.urutai.sdapientrega.repository.PedidoEntregaRepository;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 
-
 /**
  * Service responsável pela lógica de negócio do domínio de Pedidos de Entrega.
  *
- * Responsabilidades:
- * - CRUD de pedidos
- * - Atualização de status com regras de negócio
- * - Integração com RabbitMQ para notificações
- * - Tratamento de exceções de negócio
+ * Responsabilidades: - CRUD de pedidos - Atualização de status com regras de
+ * negócio - Integração com RabbitMQ para notificações - Tratamento de exceções
+ * de negócio
  */
 @Slf4j
 @Service
@@ -44,8 +41,8 @@ public class PedidoEntregaService {
     private PedidoEmEntregaCacheService cacheService;
 
     /**
-     * Inicializa o cache ao carregar a aplicação.
-     * Sincroniza com o banco de dados para recuperar pedidos em entrega anteriores.
+     * Inicializa o cache ao carregar a aplicação. Sincroniza com o banco de
+     * dados para recuperar pedidos em entrega anteriores.
      */
     @PostConstruct
     public void inicializarCache() {
@@ -54,42 +51,43 @@ public class PedidoEntregaService {
     }
 
     /**
-     * Cria um novo pedido de entrega.
+     * Cria um novo pedido de entrega a partir dos dados recebidos do serviço de
+     * Pedidos (sd-api-pedido).
      *
-     * @param requestDTO dados do pedido a ser criado
+     * @param requestDTO dados do pedido recebidos via RabbitMQ ou REST
      * @return DTO com dados do pedido criado
-     * @throws PedidoDuplicadoException se o número do pedido já existe
+     * @throws PedidoDuplicadoException se o idPedido já existe
      */
     public PedidoEntregaResponseDTO criarPedido(PedidoEntregaRequestDTO requestDTO) {
-        log.info("Criando novo pedido: {}", requestDTO.getNumeroPedido());
+        log.info("Criando novo pedido de entrega para idPedido: {}", requestDTO.getId());
 
         // Validar se o pedido já existe
-        if (pedidoRepository.findByNumeroPedido(requestDTO.getNumeroPedido()).isPresent()) {
-            log.warn("Tentativa de criar pedido duplicado: {}", requestDTO.getNumeroPedido());
+        if (pedidoRepository.findByIdPedido(requestDTO.getId()).isPresent()) {
+            log.warn("Tentativa de criar pedido duplicado. idPedido: {}", requestDTO.getId());
             throw new PedidoDuplicadoException(
-                    "Pedido com número " + requestDTO.getNumeroPedido() + " já existe no sistema"
+                    "Pedido com idPedido " + requestDTO.getId() + " já existe no sistema"
             );
         }
 
-        // Criar nova entidade
+        // Criar nova entidade com os dados recebidos
         PedidoEntrega pedido = new PedidoEntrega(
-                requestDTO.getNomeCliente(),
-                requestDTO.getEndereco(),
-                requestDTO.getNumeroPedido(),
-                requestDTO.getMetodoPagamento()
+                requestDTO.getId(),
+                requestDTO.getIdCliente(),
+                requestDTO.getValorTotal()
         );
 
         // Salvar no banco
         PedidoEntrega pedidoSalvo = pedidoRepository.save(pedido);
-        log.info("Pedido criado com sucesso. ID: {} - Número: {}", pedidoSalvo.getId(), pedidoSalvo.getNumeroPedido());
+        log.info("Pedido de entrega criado com sucesso. id: {} - idPedido: {} - idCliente: {}",
+                pedidoSalvo.getId(), pedidoSalvo.getIdPedido(), pedidoSalvo.getIdCliente());
 
         return converterParaResponseDTO(pedidoSalvo);
     }
 
     /**
-     * Busca um pedido pelo seu ID.
+     * Busca um pedido pelo seu ID interno de entrega.
      *
-     * @param id ID do pedido
+     * @param id ID interno do registro de entrega
      * @return DTO com dados do pedido
      * @throws PedidoNaoEncontradoException se o pedido não existe
      */
@@ -99,8 +97,8 @@ public class PedidoEntregaService {
 
         PedidoEntrega pedido = pedidoRepository.findById(id)
                 .orElseThrow(() -> new PedidoNaoEncontradoException(
-                        "Pedido com ID " + id + " não encontrado"
-                ));
+                "Pedido com ID " + id + " não encontrado"
+        ));
 
         return converterParaResponseDTO(pedido);
     }
@@ -123,12 +121,11 @@ public class PedidoEntregaService {
     /**
      * Atualiza o status de um pedido.
      *
-     * Regras de negócio:
-     * - SAIU_PARA_ENTREGA: envia notificação e adiciona ao cache
-     * - ENTREGUE: envia notificação e atualiza cache
-     * - Outros status: remove do cache se aplicável
+     * Regras de negócio: - SAIU_PARA_ENTREGA: envia notificação e adiciona ao
+     * cache - ENTREGUE: envia notificação e atualiza cache - Outros status:
+     * remove do cache se aplicável
      *
-     * @param id ID do pedido
+     * @param id ID interno do registro de entrega
      * @param novoStatus novo status
      * @return DTO com dados do pedido atualizado
      * @throws PedidoNaoEncontradoException se o pedido não existe
@@ -138,8 +135,8 @@ public class PedidoEntregaService {
 
         PedidoEntrega pedido = pedidoRepository.findById(id)
                 .orElseThrow(() -> new PedidoNaoEncontradoException(
-                        "Pedido com ID " + id + " não encontrado"
-                ));
+                "Pedido com ID " + id + " não encontrado"
+        ));
 
         PedidoStatus statusAnterior = pedido.getStatus();
         pedido.setStatus(novoStatus);
@@ -158,10 +155,10 @@ public class PedidoEntregaService {
     }
 
     /**
-     * Confirma o recebimento do pedido pelo cliente.
-     * Atualiza o status para CONFIRMADO_PELO_CLIENTE.
+     * Confirma o recebimento do pedido pelo cliente. Atualiza o status para
+     * CONFIRMADO_PELO_CLIENTE.
      *
-     * @param id ID do pedido
+     * @param id ID interno do registro de entrega
      * @return DTO com dados do pedido atualizado
      * @throws PedidoNaoEncontradoException se o pedido não existe
      */
@@ -170,14 +167,14 @@ public class PedidoEntregaService {
 
         PedidoEntrega pedido = pedidoRepository.findById(id)
                 .orElseThrow(() -> new PedidoNaoEncontradoException(
-                        "Pedido com ID " + id + " não encontrado"
-                ));
+                "Pedido com ID " + id + " não encontrado"
+        ));
 
         pedido.setStatus(PedidoStatus.CONFIRMADO_PELO_CLIENTE);
         PedidoEntrega pedidoAtualizado = pedidoRepository.save(pedido);
 
-        log.info("Recebimento do pedido confirmado. ID: {} - Número: {}",
-                pedidoAtualizado.getId(), pedidoAtualizado.getNumeroPedido());
+        log.info("Recebimento confirmado. id: {} - idPedido: {}",
+                pedidoAtualizado.getId(), pedidoAtualizado.getIdPedido());
 
         // Remove do cache quando a entrega é confirmada pelo cliente
         cacheService.removerPedidoDosEntregas(pedidoAtualizado.getId());
@@ -196,18 +193,16 @@ public class PedidoEntregaService {
         if (pedido.getStatus() == PedidoStatus.SAIU_PARA_ENTREGA) {
             cacheService.adicionarPedidoEmEntrega(pedido);
             log.info("Pedido adicionado ao cache de entregas em andamento. ID: {}", pedido.getId());
-        }
-        // Se estava em entrega (SAIU_PARA_ENTREGA ou ENTREGUE) e mudou para outro status diferente de ENTREGUE, remove do cache
-        else if ((statusAnterior == PedidoStatus.SAIU_PARA_ENTREGA ||
-                  statusAnterior == PedidoStatus.ENTREGUE) &&
-                 pedido.getStatus() != PedidoStatus.ENTREGUE) {
+        } // Se estava em entrega e mudou para outro status diferente de ENTREGUE, remove do cache
+        else if ((statusAnterior == PedidoStatus.SAIU_PARA_ENTREGA
+                || statusAnterior == PedidoStatus.ENTREGUE)
+                && pedido.getStatus() != PedidoStatus.ENTREGUE) {
             cacheService.removerPedidoDosEntregas(pedido.getId());
             log.info("Pedido removido do cache de entregas. ID: {}", pedido.getId());
-        }
-        // Se o novo status é ENTREGUE, mantém/atualiza no cache até confirmação do cliente
+        } // Se o novo status é ENTREGUE, mantém/atualiza no cache até confirmação do cliente
         else if (pedido.getStatus() == PedidoStatus.ENTREGUE) {
             cacheService.adicionarPedidoEmEntrega(pedido);
-            log.info("Pedido atualizado no cache de entregas com status ENTREGUE. ID: {}", pedido.getId());
+            log.info("Pedido atualizado no cache com status ENTREGUE. ID: {}", pedido.getId());
         }
     }
 
@@ -221,10 +216,11 @@ public class PedidoEntregaService {
             switch (pedido.getStatus()) {
                 case SAIU_PARA_ENTREGA:
                     NotificacaoDTO notificacaoSaida = NotificacaoDTO.builder()
-                            .numeroPedido(pedido.getNumeroPedido())
-                            .nomeCliente(pedido.getNomeCliente())
+                            .idPedido(pedido.getIdPedido())
+                            .idCliente(pedido.getIdCliente())
                             .mensagem("Seu pedido saiu para entrega.")
                             .tipoEvento("SAIU_PARA_ENTREGA")
+                            .timestamp(System.currentTimeMillis())
                             .build();
 
                     notificacaoProducer.enviarNotificacaoSaidaEntrega(notificacaoSaida);
@@ -232,10 +228,11 @@ public class PedidoEntregaService {
 
                 case ENTREGUE:
                     NotificacaoDTO notificacaoEntregue = NotificacaoDTO.builder()
-                            .numeroPedido(pedido.getNumeroPedido())
-                            .nomeCliente(pedido.getNomeCliente())
+                            .idPedido(pedido.getIdPedido())
+                            .idCliente(pedido.getIdCliente())
                             .mensagem("Seu pedido foi entregue.")
                             .tipoEvento("ENTREGUE")
+                            .timestamp(System.currentTimeMillis())
                             .build();
 
                     notificacaoProducer.enviarNotificacaoEntregue(notificacaoEntregue);
@@ -243,17 +240,18 @@ public class PedidoEntregaService {
 
                 default:
                     NotificacaoDTO notificacaoGenerica = NotificacaoDTO.builder()
-                            .numeroPedido(pedido.getNumeroPedido())
-                            .nomeCliente(pedido.getNomeCliente())
+                            .idPedido(pedido.getIdPedido())
+                            .idCliente(pedido.getIdCliente())
                             .tipoEvento(pedido.getStatus().name())
+                            .timestamp(System.currentTimeMillis())
                             .build();
 
                     notificacaoProducer.enviarAtualizacaoStatus(notificacaoGenerica);
                     break;
             }
         } catch (Exception e) {
-            log.error("Erro ao enviar notificação para o pedido {}. Erro: {}",
-                    pedido.getNumeroPedido(), e.getMessage(), e);
+            log.error("Erro ao enviar notificação para o pedido idPedido={}. Erro: {}",
+                    pedido.getIdPedido(), e.getMessage(), e);
             // Não propagar a exceção para não impedir a atualização do status
         }
     }
@@ -267,10 +265,9 @@ public class PedidoEntregaService {
     private PedidoEntregaResponseDTO converterParaResponseDTO(PedidoEntrega pedido) {
         return new PedidoEntregaResponseDTO(
                 pedido.getId(),
-                pedido.getNomeCliente(),
-                pedido.getEndereco(),
-                pedido.getNumeroPedido(),
-                pedido.getMetodoPagamento(),
+                pedido.getIdPedido(),
+                pedido.getIdCliente(),
+                pedido.getValorTotal(),
                 pedido.getStatus(),
                 pedido.getDataCriacao(),
                 pedido.getDataAtualizacao()

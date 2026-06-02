@@ -1,16 +1,19 @@
 package br.ifg.urutai.sdapientrega.dto;
 
+import java.io.Serializable;
+import java.util.List;
+
 import io.swagger.v3.oas.annotations.media.Schema;
-import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.io.Serializable;
-
 /**
- * DTO para requisição de criação/atualização de Pedido de Entrega.
- * Utilizado para validar dados de entrada nas operações REST.
+ * DTO para recebimento de pedidos publicados pelo serviço de Pedidos
+ * (sd-api-pedido) via RabbitMQ ou requisição REST.
+ *
+ * Mapeia diretamente a entidade {@code Pedido} do serviço de origem.
  */
 @Data
 @NoArgsConstructor
@@ -19,21 +22,20 @@ public class PedidoEntregaRequestDTO implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
-    @NotBlank(message = "Nome do cliente não pode estar vazio")
-    @Schema(description = "Nome completo do cliente", example = "João Silva", required = true)
-    private String nomeCliente;
+    @NotNull(message = "ID do pedido não pode ser nulo")
+    @Schema(description = "ID único do pedido no serviço de Pedidos", example = "1", required = true)
+    private Long id;
 
-    @NotBlank(message = "Endereço não pode estar vazio")
-    @Schema(description = "Endereço completo de entrega", 
-            example = "Rua Principal, 123, Apto 456, São Paulo - SP, 01310-100", 
-            required = true)
-    private String endereco;
+    @NotNull(message = "ID do cliente não pode ser nulo")
+    @Schema(description = "ID do cliente que realizou o pedido", example = "42", required = true)
+    private Long idCliente;
 
-    @NotBlank(message = "Número do pedido não pode estar vazio")
-    @Schema(description = "Número único do pedido", example = "PED-2024-001", required = true)
-    private String numeroPedido;
+    @Schema(description = "Valor total do pedido em centavos", example = "3980")
+    private int valorTotal;
 
-    @NotBlank(message = "Método de pagamento não pode estar vazio")
-    @Schema(description = "Método de pagamento utilizado", example = "CARTÃO_CRÉDITO", required = true)
-    private String metodoPagamento;
+    @Schema(description = "Itens que compõem o pedido")
+    private List<ItemPedidoDTO> itens;
+
+    @Schema(description = "Status do pedido no serviço de origem", example = "PAGO")
+    private String status;
 }

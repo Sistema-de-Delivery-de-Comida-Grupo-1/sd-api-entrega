@@ -1,34 +1,35 @@
 package br.ifg.urutai.sdapientrega.repository;
 
-import br.ifg.urutai.sdapientrega.entity.PedidoEntrega;
-import br.ifg.urutai.sdapientrega.enums.PedidoStatus;
+import java.util.List;
+import java.util.Optional;
+
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
-import java.util.List;
-import java.util.Optional;
+import br.ifg.urutai.sdapientrega.entity.PedidoEntrega;
+import br.ifg.urutai.sdapientrega.enums.PedidoStatus;
 
 /**
- * Repositório para a entidade PedidoEntrega.
- * Responsável por operações de persistência no banco de dados.
+ * Repositório para a entidade PedidoEntrega. Responsável por operações de
+ * persistência no banco de dados.
  */
 @Repository
 public interface PedidoEntregaRepository extends JpaRepository<PedidoEntrega, Long> {
 
     /**
-     * Busca um pedido pelo número do pedido.
-     * 
-     * @param numeroPedido número único do pedido
+     * Busca um pedido pelo ID do pedido de origem (sd-api-pedido).
+     *
+     * @param idPedido ID do pedido no serviço de origem
      * @return Optional contendo o pedido se encontrado
      */
-    Optional<PedidoEntrega> findByNumeroPedido(String numeroPedido);
+    Optional<PedidoEntrega> findByIdPedido(Long idPedido);
 
     /**
-     * Busca todos os pedidos que estão em entrega.
-     * Retorna pedidos com status SAIU_PARA_ENTREGA.
+     * Busca todos os pedidos com um determinado status.
      *
-     * @return lista de pedidos em entrega
+     * @param status status desejado
+     * @return lista de pedidos com o status informado
      */
     List<PedidoEntrega> findByStatus(PedidoStatus status);
 
@@ -37,6 +38,8 @@ public interface PedidoEntregaRepository extends JpaRepository<PedidoEntrega, Lo
      *
      * @return lista de pedidos em processo de entrega
      */
-    @Query("SELECT p FROM PedidoEntrega p WHERE p.status IN (br.ifg.urutai.sdapientrega.enums.PedidoStatus.SAIU_PARA_ENTREGA, br.ifg.urutai.sdapientrega.enums.PedidoStatus.ENTREGUE)")
+    @Query("SELECT p FROM PedidoEntrega p WHERE p.status IN ("
+            + "br.ifg.urutai.sdapientrega.enums.PedidoStatus.SAIU_PARA_ENTREGA, "
+            + "br.ifg.urutai.sdapientrega.enums.PedidoStatus.ENTREGUE)")
     List<PedidoEntrega> findPedidosEmEntrega();
 }

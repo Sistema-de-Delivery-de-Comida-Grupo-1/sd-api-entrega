@@ -1,26 +1,31 @@
 package br.ifg.urutai.sdapientrega.entity;
 
-import br.ifg.urutai.sdapientrega.enums.PedidoStatus;
-import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.UpdateTimestamp;
-
 import java.io.Serializable;
 import java.time.LocalDateTime;
 
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
+
+import br.ifg.urutai.sdapientrega.enums.PedidoStatus;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
 /**
  * Entidade que representa um pedido de entrega no sistema.
- * 
- * Responsável por armazenar informações do pedido como:
- * - Dados do cliente
- * - Endereço de entrega
- * - Número do pedido
- * - Método de pagamento
- * - Status da entrega
- * - Timestamps de criação e atualização
+ *
+ * Armazena os dados essenciais recebidos do serviço de Pedidos (sd-api-pedido)
+ * necessários para gerenciar o ciclo de vida da entrega: - ID do pedido de
+ * origem - ID do cliente - Valor total - Status da entrega (gerenciado por este
+ * microserviço) - Timestamps de criação e atualização
  */
 @Entity
 @Table(name = "pedidos_entrega")
@@ -36,17 +41,14 @@ public class PedidoEntrega implements Serializable {
     @Column(name = "id")
     private Long id;
 
-    @Column(name = "nome_cliente", nullable = false, length = 150)
-    private String nomeCliente;
+    @Column(name = "id_pedido", nullable = false, unique = true)
+    private Long idPedido;
 
-    @Column(name = "endereco", nullable = false, columnDefinition = "TEXT")
-    private String endereco;
+    @Column(name = "id_cliente", nullable = false)
+    private Long idCliente;
 
-    @Column(name = "numero_pedido", nullable = false, unique = true, length = 50)
-    private String numeroPedido;
-
-    @Column(name = "metodo_pagamento", nullable = false, length = 50)
-    private String metodoPagamento;
+    @Column(name = "valor_total", nullable = false)
+    private int valorTotal;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 30)
@@ -61,14 +63,17 @@ public class PedidoEntrega implements Serializable {
     private LocalDateTime dataAtualizacao;
 
     /**
-     * Construtor customizado para criação de pedido com dados iniciais
+     * Construtor customizado para criação de pedido com dados iniciais. O
+     * status é definido como RECEBIDO por padrão.
+     *
+     * @param idPedido ID do pedido no serviço de origem
+     * @param idCliente ID do cliente
+     * @param valorTotal valor total do pedido em centavos
      */
-    public PedidoEntrega(String nomeCliente, String endereco, String numeroPedido, 
-                         String metodoPagamento) {
-        this.nomeCliente = nomeCliente;
-        this.endereco = endereco;
-        this.numeroPedido = numeroPedido;
-        this.metodoPagamento = metodoPagamento;
+    public PedidoEntrega(Long idPedido, Long idCliente, int valorTotal) {
+        this.idPedido = idPedido;
+        this.idCliente = idCliente;
+        this.valorTotal = valorTotal;
         this.status = PedidoStatus.RECEBIDO;
     }
 }

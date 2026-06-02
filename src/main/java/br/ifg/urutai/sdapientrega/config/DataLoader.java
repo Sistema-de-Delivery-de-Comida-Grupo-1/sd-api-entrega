@@ -14,11 +14,11 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Componente responsável por realizar a carga inicial de dados no banco H2
- * ao iniciar a aplicação.
+ * Componente responsável por realizar a carga inicial de dados no banco H2 ao
+ * iniciar a aplicação.
  *
- * Insere pedidos de exemplo com diferentes status e, em seguida,
- * sincroniza o cache em memória com os dados persistidos.
+ * Insere pedidos de exemplo com diferentes status e, em seguida, sincroniza o
+ * cache em memória com os dados persistidos.
  */
 @Slf4j
 @Component
@@ -44,51 +44,28 @@ public class DataLoader implements ApplicationRunner {
 
     private void carregarPedidos() {
         List<PedidoEntrega> pedidos = List.of(
-                criarPedido(
-                        "João Silva",
-                        "Rua das Flores, 123 - Centro, Urutaí-GO",
-                        "PED-001",
-                        "Cartão de Crédito",
-                        PedidoStatus.RECEBIDO
-                ),
-                criarPedido(
-                        "Maria Oliveira",
-                        "Av. Brasil, 456 - Jardim América, Urutaí-GO",
-                        "PED-002",
-                        "Pix",
-                        PedidoStatus.PREPARANDO_ENTREGA
-                ),
-                criarPedido(
-                        "Carlos Santos",
-                        "Rua XV de Novembro, 789 - Vila Nova, Urutaí-GO",
-                        "PED-003",
-                        "Dinheiro",
-                        PedidoStatus.SAIU_PARA_ENTREGA
-                ),
-                criarPedido(
-                        "Ana Costa",
-                        "Rua Goiás, 321 - Setor Norte, Urutaí-GO",
-                        "PED-004",
-                        "Cartão de Débito",
-                        PedidoStatus.ENTREGUE
-                ),
-                criarPedido(
-                        "Pedro Souza",
-                        "Av. Universitária, 654 - Campus IFG, Urutaí-GO",
-                        "PED-005",
-                        "Pix",
-                        PedidoStatus.CONFIRMADO_PELO_CLIENTE
-                )
+                criarPedido(101L, 1L, 4500, PedidoStatus.RECEBIDO),
+                criarPedido(102L, 2L, 3200, PedidoStatus.PREPARANDO_ENTREGA),
+                criarPedido(103L, 3L, 7800, PedidoStatus.SAIU_PARA_ENTREGA),
+                criarPedido(104L, 4L, 2100, PedidoStatus.ENTREGUE),
+                criarPedido(105L, 5L, 5600, PedidoStatus.CONFIRMADO_PELO_CLIENTE)
         );
 
         pedidoEntregaRepository.saveAll(pedidos);
         log.info("{} pedidos inseridos com sucesso no banco H2.", pedidos.size());
     }
 
-    private PedidoEntrega criarPedido(String nomeCliente, String endereco,
-                                      String numeroPedido, String metodoPagamento,
-                                      PedidoStatus status) {
-        PedidoEntrega pedido = new PedidoEntrega(nomeCliente, endereco, numeroPedido, metodoPagamento);
+    /**
+     * Cria um PedidoEntrega com os dados fornecidos.
+     *
+     * @param idPedido ID do pedido no serviço de origem (sd-api-pedido)
+     * @param idCliente ID do cliente
+     * @param valorTotal valor total do pedido em centavos
+     * @param status status inicial do pedido
+     * @return PedidoEntrega configurado
+     */
+    private PedidoEntrega criarPedido(Long idPedido, Long idCliente, int valorTotal, PedidoStatus status) {
+        PedidoEntrega pedido = new PedidoEntrega(idPedido, idCliente, valorTotal);
         pedido.setStatus(status);
         return pedido;
     }

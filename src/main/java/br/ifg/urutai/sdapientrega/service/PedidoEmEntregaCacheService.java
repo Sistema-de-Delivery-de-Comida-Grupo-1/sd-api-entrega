@@ -1,26 +1,28 @@
 package br.ifg.urutai.sdapientrega.service;
 
-import br.ifg.urutai.sdapientrega.dto.PedidoEntregaResponseDTO;
-import br.ifg.urutai.sdapientrega.entity.PedidoEntrega;
-import br.ifg.urutai.sdapientrega.repository.PedidoEntregaRepository;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
-
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import br.ifg.urutai.sdapientrega.dto.PedidoEntregaResponseDTO;
+import br.ifg.urutai.sdapientrega.entity.PedidoEntrega;
+import br.ifg.urutai.sdapientrega.repository.PedidoEntregaRepository;
+import lombok.extern.slf4j.Slf4j;
+
 /**
  * Serviço responsável por gerenciar o cache de pedidos em entrega.
  *
  * Mantém um armazenamento em memória dos pedidos que estão sendo entregues,
- * permitindo rápido acesso e consultas sem necessidade de consultar o banco
- * de dados para cada requisição.
+ * permitindo rápido acesso e consultas sem necessidade de consultar o banco de
+ * dados para cada requisição.
  *
- * Thread-safe: utiliza ConcurrentHashMap para permitir acesso de múltiplas threads.
+ * Thread-safe: utiliza ConcurrentHashMap para permitir acesso de múltiplas
+ * threads.
  */
 @Slf4j
 @Service
@@ -40,8 +42,8 @@ public class PedidoEmEntregaCacheService {
     public void adicionarPedidoEmEntrega(PedidoEntrega pedido) {
         if (pedido != null && pedido.getId() != null) {
             pedidosEmEntregaCache.put(pedido.getId(), pedido);
-            log.info("Pedido adicionado ao cache de entrega. ID: {} - Número: {}",
-                    pedido.getId(), pedido.getNumeroPedido());
+            log.info("Pedido adicionado ao cache de entrega. ID: {} - idPedido: {}",
+                    pedido.getId(), pedido.getIdPedido());
         }
     }
 
@@ -53,8 +55,8 @@ public class PedidoEmEntregaCacheService {
     public void removerPedidoDosEntregas(Long pedidoId) {
         if (pedidosEmEntregaCache.containsKey(pedidoId)) {
             PedidoEntrega pedido = pedidosEmEntregaCache.remove(pedidoId);
-            log.info("Pedido removido do cache de entrega. ID: {} - Número: {}",
-                    pedidoId, pedido.getNumeroPedido());
+            log.info("Pedido removido do cache de entrega. ID: {} - idPedido: {}",
+                    pedidoId, pedido.getIdPedido());
         }
     }
 
@@ -66,8 +68,8 @@ public class PedidoEmEntregaCacheService {
     public void atualizarPedidoEmEntrega(PedidoEntrega pedido) {
         if (pedidosEmEntregaCache.containsKey(pedido.getId())) {
             pedidosEmEntregaCache.put(pedido.getId(), pedido);
-            log.info("Pedido atualizado no cache de entrega. ID: {} - Número: {}",
-                    pedido.getId(), pedido.getNumeroPedido());
+            log.info("Pedido atualizado no cache de entrega. ID: {} - idPedido: {}",
+                    pedido.getId(), pedido.getIdPedido());
         }
     }
 
@@ -123,8 +125,8 @@ public class PedidoEmEntregaCacheService {
     }
 
     /**
-     * Sincroniza o cache com o banco de dados.
-     * Busca todos os pedidos que estão em status de entrega e adiciona ao cache.
+     * Sincroniza o cache com o banco de dados. Busca todos os pedidos que estão
+     * em status de entrega e adiciona ao cache.
      */
     public void sincronizarCacheComBanco() {
         log.info("Sincronizando cache de pedidos em entrega com banco de dados...");
@@ -136,8 +138,8 @@ public class PedidoEmEntregaCacheService {
         List<PedidoEntrega> pedidosEmEntrega = pedidoRepository.findPedidosEmEntrega();
 
         // Adicionar ao cache
-        pedidosEmEntrega.forEach(pedido ->
-            pedidosEmEntregaCache.put(pedido.getId(), pedido)
+        pedidosEmEntrega.forEach(pedido
+                -> pedidosEmEntregaCache.put(pedido.getId(), pedido)
         );
 
         log.info("Cache sincronizado com sucesso. Total de pedidos em entrega: {}",
@@ -161,14 +163,12 @@ public class PedidoEmEntregaCacheService {
     private PedidoEntregaResponseDTO converterParaResponseDTO(PedidoEntrega pedido) {
         return new PedidoEntregaResponseDTO(
                 pedido.getId(),
-                pedido.getNomeCliente(),
-                pedido.getEndereco(),
-                pedido.getNumeroPedido(),
-                pedido.getMetodoPagamento(),
+                pedido.getIdPedido(),
+                pedido.getIdCliente(),
+                pedido.getValorTotal(),
                 pedido.getStatus(),
                 pedido.getDataCriacao(),
                 pedido.getDataAtualizacao()
         );
     }
 }
-
