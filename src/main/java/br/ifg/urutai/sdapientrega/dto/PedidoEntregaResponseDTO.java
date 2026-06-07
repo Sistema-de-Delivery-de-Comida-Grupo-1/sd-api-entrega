@@ -31,8 +31,8 @@ public class PedidoEntregaResponseDTO implements Serializable {
     @Schema(description = "ID do cliente que realizou o pedido", example = "42")
     private Long idCliente;
 
-    @Schema(description = "Valor total do pedido em centavos", example = "3980")
-    private int valorTotal;
+    @Schema(description = "Valor total do pedido", example = "39.80")
+    private double valorTotal;
 
     @Schema(description = "Status atual da entrega", example = "SAIU_PARA_ENTREGA")
     private PedidoStatus status;

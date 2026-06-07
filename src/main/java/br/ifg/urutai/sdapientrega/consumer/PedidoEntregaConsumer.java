@@ -2,6 +2,8 @@ package br.ifg.urutai.sdapientrega.consumer;
 
 import java.io.IOException;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.amqp.support.AmqpHeaders;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,15 +20,16 @@ import lombok.extern.slf4j.Slf4j;
 /**
  * Consumer responsável por receber novos pedidos via RabbitMQ.
  *
- * Escuta a fila {@code entrega.pedido.novo.queue}, publicada pelo serviço de
- * Pedidos (sd-api-pedido) com routing key {@code pedido.criado}.
+ * Escuta a fila {@code entrega.pedido.novo.queue}, vinculada ao exchange
+ * {@code event-notificacao} publicado pelo serviço de Pedidos (sd-api-pedido)
+ * via Spring Cloud Stream.
  *
- * Fluxo: 1. Serviço de Pedidos publica um evento "pedido.criado" no exchange
- * "pedidos.topic.exchange" 2. Este consumer recebe a mensagem e cria o
- * PedidoEntrega correspondente 3. O pedido é persistido com status inicial
- * RECEBIDO 4. Em caso de pedido duplicado, a mensagem é descartada (ack) sem
- * reprocessamento 5. Em caso de erro inesperado, a mensagem é rejeitada (nack)
- * e devolvida à fila
+ * Fluxo: 1. sd-api-pedido publica um PedidoResponseDTO no exchange
+ * "event-notificacao" 2. Este consumer recebe a mensagem e cria o PedidoEntrega
+ * correspondente 3. O pedido é persistido com status inicial RECEBIDO 4. Em
+ * caso de pedido duplicado, a mensagem é descartada (ack) sem reprocessamento
+ * 5. Em caso de erro inesperado, a mensagem é rejeitada (nack) e devolvida à
+ * fila
  */
 @Slf4j
 @Component
@@ -34,6 +37,9 @@ public class PedidoEntregaConsumer {
 
     @Autowired
     private PedidoEntregaService pedidoEntregaService;
+
+    private Logger log = LoggerFactory.getLogger(PedidoEntregaConsumer.class);
+
 
     /**
      * Recebe um novo pedido da fila e registra no sistema de entrega.
@@ -45,11 +51,13 @@ public class PedidoEntregaConsumer {
      * @param channel canal AMQP para controle de acknowledge manual
      * @param deliveryTag tag de entrega da mensagem para ack/nack
      */
-    @RabbitListener(queues = "${queue.pedido-entrega}")
+    @RabbitListener(queues = "${rabbitmq.queue.pedido-novo}")
     public void receberNovoPedido(
             PedidoEntregaRequestDTO requestDTO,
             Channel channel,
             @Header(AmqpHeaders.DELIVERY_TAG) long deliveryTag) {
+
+
 
         log.info("Pedido recebido via fila. idPedido: {} - idCliente: {}",
                 requestDTO.getId(), requestDTO.getIdCliente());

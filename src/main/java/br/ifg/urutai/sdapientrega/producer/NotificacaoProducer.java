@@ -1,10 +1,13 @@
 package br.ifg.urutai.sdapientrega.producer;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
+import br.ifg.urutai.sdapientrega.consumer.PedidoEntregaConsumer;
 import br.ifg.urutai.sdapientrega.dto.NotificacaoDTO;
 import lombok.extern.slf4j.Slf4j;
 
@@ -29,6 +32,8 @@ public class NotificacaoProducer {
 
     @Value("${rabbitmq.routing-key.status}")
     private String routingKeyStatus;
+
+    private Logger log = LoggerFactory.getLogger(PedidoEntregaConsumer.class);
 
     /**
      * Envia notificação quando o pedido sai para entrega.

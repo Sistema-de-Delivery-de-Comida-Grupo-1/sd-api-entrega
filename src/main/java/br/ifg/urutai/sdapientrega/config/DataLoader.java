@@ -2,10 +2,13 @@ package br.ifg.urutai.sdapientrega.config;
 
 import java.util.List;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.stereotype.Component;
 
+import br.ifg.urutai.sdapientrega.consumer.PedidoEntregaConsumer;
 import br.ifg.urutai.sdapientrega.entity.PedidoEntrega;
 import br.ifg.urutai.sdapientrega.enums.PedidoStatus;
 import br.ifg.urutai.sdapientrega.repository.PedidoEntregaRepository;
@@ -25,8 +28,10 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class DataLoader implements ApplicationRunner {
 
-    private final PedidoEntregaRepository pedidoEntregaRepository;
-    private final PedidoEmEntregaCacheService pedidoEmEntregaCacheService;
+    private PedidoEntregaRepository pedidoEntregaRepository;
+    private PedidoEmEntregaCacheService pedidoEmEntregaCacheService;
+
+    private Logger log = LoggerFactory.getLogger(PedidoEntregaConsumer.class);
 
     @Override
     public void run(ApplicationArguments args) {

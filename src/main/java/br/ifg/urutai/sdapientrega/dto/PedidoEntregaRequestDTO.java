@@ -3,6 +3,8 @@ package br.ifg.urutai.sdapientrega.dto;
 import java.io.Serializable;
 import java.util.List;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
@@ -18,6 +20,7 @@ import lombok.NoArgsConstructor;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class PedidoEntregaRequestDTO implements Serializable {
 
     private static final long serialVersionUID = 1L;
@@ -30,8 +33,8 @@ public class PedidoEntregaRequestDTO implements Serializable {
     @Schema(description = "ID do cliente que realizou o pedido", example = "42", required = true)
     private Long idCliente;
 
-    @Schema(description = "Valor total do pedido em centavos", example = "3980")
-    private int valorTotal;
+    @Schema(description = "Valor total do pedido", example = "39.80")
+    private double valorTotal;
 
     @Schema(description = "Itens que compõem o pedido")
     private List<ItemPedidoDTO> itens;

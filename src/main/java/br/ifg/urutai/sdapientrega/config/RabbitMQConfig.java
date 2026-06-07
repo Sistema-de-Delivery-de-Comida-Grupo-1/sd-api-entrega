@@ -7,6 +7,7 @@ import org.springframework.amqp.core.QueueBuilder;
 import org.springframework.amqp.core.TopicExchange;
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.amqp.support.converter.DefaultJackson2JavaTypeMapper;
 import org.springframework.amqp.support.converter.Jackson2JsonMessageConverter;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -14,12 +15,8 @@ import org.springframework.context.annotation.Configuration;
 
 /**
  * Configuração do RabbitMQ para o microserviço de Entrega.
- * 
- * Define:
- * - Exchanges
- * - Filas
- * - Bindings
- * - Configurações de conexão
+ *
+ * Define: - Exchanges - Filas - Bindings - Configurações de conexão
  */
 @Configuration
 public class RabbitMQConfig {
@@ -54,12 +51,19 @@ public class RabbitMQConfig {
     private String routingKeyPedidoNovo;
 
     /**
-     * Converte mensagens para/de JSON usando Jackson.
-     * Necessário para serializar/deserializar DTOs no RabbitMQ.
+     * Converte mensagens para/de JSON usando Jackson. Configurado com
+     * TypePrecedence.INFERRED para ignorar o header __TypeId__ enviado pelo
+     * Spring Cloud Stream (sd-api-pedido) e usar o tipo do parâmetro do
+     *
+     * @RabbitListener para deserialização.
      */
     @Bean
     public Jackson2JsonMessageConverter messageConverter() {
-        return new Jackson2JsonMessageConverter();
+        Jackson2JsonMessageConverter converter = new Jackson2JsonMessageConverter();
+        DefaultJackson2JavaTypeMapper typeMapper = new DefaultJackson2JavaTypeMapper();
+        typeMapper.setTypePrecedence(DefaultJackson2JavaTypeMapper.TypePrecedence.INFERRED);
+        converter.setJavaTypeMapper(typeMapper);
+        return converter;
     }
 
     /**
@@ -73,8 +77,8 @@ public class RabbitMQConfig {
     }
 
     /**
-     * Define o exchange do tipo Topic para o domínio de entrega.
-     * Topic exchange permite roteamento flexível baseado em padrões.
+     * Define o exchange do tipo Topic para o domínio de entrega. Topic exchange
+     * permite roteamento flexível baseado em padrões.
      */
     @Bean
     public TopicExchange exchangeEntrega() {
@@ -82,8 +86,8 @@ public class RabbitMQConfig {
     }
 
     /**
-     * Define o exchange do tipo Topic para recebimento de pedidos.
-     * Este exchange é publicado pelo serviço de Pedidos (sd-api-pedido).
+     * Define o exchange do tipo Topic para recebimento de pedidos. Este
+     * exchange é publicado pelo serviço de Pedidos (sd-api-pedido).
      */
     @Bean
     public TopicExchange exchangePedidos() {
@@ -91,8 +95,8 @@ public class RabbitMQConfig {
     }
 
     /**
-     * Fila para notificações de entrega.
-     * Esta fila recebe mensagens quando o status do pedido muda.
+     * Fila para notificações de entrega. Esta fila recebe mensagens quando o
+     * status do pedido muda.
      */
     @Bean
     public Queue queueNotificacao() {
@@ -101,8 +105,8 @@ public class RabbitMQConfig {
     }
 
     /**
-     * Fila para atualizações de status.
-     * Esta fila recebe atualizações gerais de status do pedido.
+     * Fila para atualizações de status. Esta fila recebe atualizações gerais de
+     * status do pedido.
      */
     @Bean
     public Queue queueStatus() {
@@ -120,8 +124,8 @@ public class RabbitMQConfig {
     }
 
     /**
-     * Binding entre a fila de notificação e o exchange.
-     * Rota mensagens com a chave "entrega.notificacao.*"
+     * Binding entre a fila de notificação e o exchange. Rota mensagens com a
+     * chave "entrega.notificacao.*"
      */
     @Bean
     public Binding bindingNotificacao(Queue queueNotificacao, TopicExchange exchangeEntrega) {
@@ -131,8 +135,8 @@ public class RabbitMQConfig {
     }
 
     /**
-     * Binding entre a fila de status e o exchange.
-     * Rota mensagens com a chave "entrega.status.*"
+     * Binding entre a fila de status e o exchange. Rota mensagens com a chave
+     * "entrega.status.*"
      */
     @Bean
     public Binding bindingStatus(Queue queueStatus, TopicExchange exchangeEntrega) {
@@ -142,8 +146,9 @@ public class RabbitMQConfig {
     }
 
     /**
-     * Binding entre a fila de pedidos novos e o exchange de pedidos.
-     * Escuta mensagens com routing key "pedido.criado" do serviço de Pedidos.
+     * Binding entre a fila de pedidos novos e o exchange "event-notificacao".
+     * Usa routing key "#" para receber todas as mensagens publicadas pelo
+     * sd-api-pedido via Spring Cloud Stream.
      */
     @Bean
     public Binding bindingPedidoNovo(Queue queuePedidoNovo, TopicExchange exchangePedidos) {

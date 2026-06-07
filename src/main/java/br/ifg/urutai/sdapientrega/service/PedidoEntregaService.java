@@ -3,10 +3,13 @@ package br.ifg.urutai.sdapientrega.service;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import br.ifg.urutai.sdapientrega.consumer.PedidoEntregaConsumer;
 import br.ifg.urutai.sdapientrega.dto.NotificacaoDTO;
 import br.ifg.urutai.sdapientrega.dto.PedidoEntregaRequestDTO;
 import br.ifg.urutai.sdapientrega.dto.PedidoEntregaResponseDTO;
@@ -39,6 +42,8 @@ public class PedidoEntregaService {
 
     @Autowired
     private PedidoEmEntregaCacheService cacheService;
+
+    private Logger log = LoggerFactory.getLogger(PedidoEntregaConsumer.class);
 
     /**
      * Inicializa o cache ao carregar a aplicação. Sincroniza com o banco de

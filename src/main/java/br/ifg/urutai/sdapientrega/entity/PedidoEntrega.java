@@ -48,7 +48,7 @@ public class PedidoEntrega implements Serializable {
     private Long idCliente;
 
     @Column(name = "valor_total", nullable = false)
-    private int valorTotal;
+    private double valorTotal;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 30)
@@ -70,7 +70,7 @@ public class PedidoEntrega implements Serializable {
      * @param idCliente ID do cliente
      * @param valorTotal valor total do pedido em centavos
      */
-    public PedidoEntrega(Long idPedido, Long idCliente, int valorTotal) {
+    public PedidoEntrega(Long idPedido, Long idCliente, double valorTotal) {
         this.idPedido = idPedido;
         this.idCliente = idCliente;
         this.valorTotal = valorTotal;
