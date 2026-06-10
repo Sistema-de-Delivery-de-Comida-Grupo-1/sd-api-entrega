@@ -12,12 +12,6 @@ import org.springframework.amqp.support.converter.Jackson2JsonMessageConverter;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-
-/**
- * Configuração do RabbitMQ para o microserviço de Entrega.
- *
- * Define: - Exchanges - Filas - Bindings - Configurações de conexão
- */
 @Configuration
 public class RabbitMQConfig {
 
@@ -28,18 +22,18 @@ public class RabbitMQConfig {
     @Value("${rabbitmq.exchange.pedidos}")
     private String exchangePedidos;
 
-    // Filas de saída
+    // Filas de saída (notificações do sd-api-entrega)
     @Value("${rabbitmq.queue.notificacao}")
     private String queueNotificacao;
 
     @Value("${rabbitmq.queue.status}")
     private String queueStatus;
 
-    // Fila de entrada (recebimento de pedidos)
+    // Fila de entrada (recebe eventos de pedidos do sd-api-pedido via event-notificacao)
     @Value("${rabbitmq.queue.pedido-novo}")
     private String queuePedidoNovo;
 
-    // Routing Keys de saída
+    // Routing Keys de saída (binding patterns)
     @Value("${rabbitmq.routing-key.notificacao}")
     private String routingKeyNotificacao;
 
@@ -51,11 +45,9 @@ public class RabbitMQConfig {
     private String routingKeyPedidoNovo;
 
     /**
-     * Converte mensagens para/de JSON usando Jackson. Configurado com
-     * TypePrecedence.INFERRED para ignorar o header __TypeId__ enviado pelo
-     * Spring Cloud Stream (sd-api-pedido) e usar o tipo do parâmetro do
-     *
-     * @RabbitListener para deserialização.
+     * Converte mensagens para/de JSON usando Jackson.
+     * TypePrecedence.INFERRED ignora o header __TypeId__ do Spring Cloud Stream
+     * e usa o tipo do parâmetro do @RabbitListener para deserialização.
      */
     @Bean
     public Jackson2JsonMessageConverter messageConverter() {
@@ -77,8 +69,7 @@ public class RabbitMQConfig {
     }
 
     /**
-     * Define o exchange do tipo Topic para o domínio de entrega. Topic exchange
-     * permite roteamento flexível baseado em padrões.
+     * Exchange próprio do sd-api-entrega (Topic) para publicar notificações internas.
      */
     @Bean
     public TopicExchange exchangeEntrega() {
@@ -86,8 +77,10 @@ public class RabbitMQConfig {
     }
 
     /**
-     * Define o exchange do tipo Topic para recebimento de pedidos. Este
-     * exchange é publicado pelo serviço de Pedidos (sd-api-pedido).
+     * Exchange compartilhado event-notificacao (Topic).
+     * Publicado pelo sd-api-pedido (Spring Cloud Stream) e consumido por
+     * sd-api-entrega e sd-api-notificacao.
+     * sd-api-entrega também publica aqui ao mudar status da entrega.
      */
     @Bean
     public TopicExchange exchangePedidos() {
@@ -95,28 +88,27 @@ public class RabbitMQConfig {
     }
 
     /**
-     * Fila para notificações de entrega. Esta fila recebe mensagens quando o
-     * status do pedido muda.
+     * Fila para notificações internas de entrega.
+     * Recebe eventos de SAIU_PARA_ENTREGA e ENTREGUE via entrega.topic.exchange.
      */
     @Bean
     public Queue queueNotificacao() {
-        return QueueBuilder.durable(queueNotificacao)
-                .build();
+        return QueueBuilder.durable(queueNotificacao).build();
     }
 
     /**
-     * Fila para atualizações de status. Esta fila recebe atualizações gerais de
-     * status do pedido.
+     * Fila para atualizações de status internas.
+     * Recebe demais mudanças de status via entrega.topic.exchange.
      */
     @Bean
     public Queue queueStatus() {
-        return QueueBuilder.durable(queueStatus)
-                .build();
+        return QueueBuilder.durable(queueStatus).build();
     }
 
     /**
-     * Fila para recebimento de novos pedidos vindos do serviço de Pedidos.
-     * Mensagens publicadas com routing key "pedido.criado" chegam aqui.
+     * Fila de entrada de pedidos do sd-api-pedido.
+     * Bound ao exchange event-notificacao com routing key "#" para receber
+     * todos os eventos publicados pelo sd-api-pedido via Spring Cloud Stream.
      */
     @Bean
     public Queue queuePedidoNovo() {
@@ -124,8 +116,7 @@ public class RabbitMQConfig {
     }
 
     /**
-     * Binding entre a fila de notificação e o exchange. Rota mensagens com a
-     * chave "entrega.notificacao.*"
+     * Binding: entrega.notificacao.queue → entrega.topic.exchange (entrega.notificacao.*)
      */
     @Bean
     public Binding bindingNotificacao(Queue queueNotificacao, TopicExchange exchangeEntrega) {
@@ -135,8 +126,7 @@ public class RabbitMQConfig {
     }
 
     /**
-     * Binding entre a fila de status e o exchange. Rota mensagens com a chave
-     * "entrega.status.*"
+     * Binding: entrega.status.queue → entrega.topic.exchange (entrega.status.*)
      */
     @Bean
     public Binding bindingStatus(Queue queueStatus, TopicExchange exchangeEntrega) {
@@ -146,9 +136,8 @@ public class RabbitMQConfig {
     }
 
     /**
-     * Binding entre a fila de pedidos novos e o exchange "event-notificacao".
-     * Usa routing key "#" para receber todas as mensagens publicadas pelo
-     * sd-api-pedido via Spring Cloud Stream.
+     * Binding: entrega.pedido.novo.queue → event-notificacao (#)
+     * Recebe todos os eventos do sd-api-pedido via Spring Cloud Stream.
      */
     @Bean
     public Binding bindingPedidoNovo(Queue queuePedidoNovo, TopicExchange exchangePedidos) {

@@ -15,80 +15,111 @@ import com.rabbitmq.client.Channel;
 import br.ifg.urutai.sdapientrega.dto.PedidoEntregaRequestDTO;
 import br.ifg.urutai.sdapientrega.exception.PedidoDuplicadoException;
 import br.ifg.urutai.sdapientrega.service.PedidoEntregaService;
-import lombok.extern.slf4j.Slf4j;
-
-/**
- * Consumer responsável por receber novos pedidos via RabbitMQ.
- *
- * Escuta a fila {@code entrega.pedido.novo.queue}, vinculada ao exchange
- * {@code event-notificacao} publicado pelo serviço de Pedidos (sd-api-pedido)
- * via Spring Cloud Stream.
- *
- * Fluxo: 1. sd-api-pedido publica um PedidoResponseDTO no exchange
- * "event-notificacao" 2. Este consumer recebe a mensagem e cria o PedidoEntrega
- * correspondente 3. O pedido é persistido com status inicial RECEBIDO 4. Em
- * caso de pedido duplicado, a mensagem é descartada (ack) sem reprocessamento
- * 5. Em caso de erro inesperado, a mensagem é rejeitada (nack) e devolvida à
- * fila
- */
-@Slf4j
 @Component
 public class PedidoEntregaConsumer {
+
+    private static final String STATUS_PRONTO_PARA_ENTREGA = "PRONTO_PARA_ENTREGA";
 
     @Autowired
     private PedidoEntregaService pedidoEntregaService;
 
-    private Logger log = LoggerFactory.getLogger(PedidoEntregaConsumer.class);
+    private final Logger log = LoggerFactory.getLogger(PedidoEntregaConsumer.class);
 
+    // -------------------------------------------------------------------------
+    // Canal 1: exchange event-notificacao (Spring Cloud Stream)
+    // Recebe todos os eventos do sd-api-pedido; filtra por PRONTO_PARA_ENTREGA
+    // -------------------------------------------------------------------------
 
     /**
-     * Recebe um novo pedido da fila e registra no sistema de entrega.
+     * Recebe eventos de mudança de status do sd-api-pedido via exchange
+     * {@code event-notificacao} (Spring Cloud Stream).
      *
-     * O acknowledge é feito manualmente para garantir que a mensagem só seja
-     * removida da fila após processamento bem-sucedido.
+     * <p>Somente mensagens com {@code status == PRONTO_PARA_ENTREGA} disparam
+     * a criação de um registro de entrega. Outros status são confirmados (ack)
+     * e descartados sem processamento.
      *
-     * @param requestDTO dados do pedido recebido via fila
-     * @param channel canal AMQP para controle de acknowledge manual
-     * @param deliveryTag tag de entrega da mensagem para ack/nack
+     * @param requestDTO dados do pedido recebido
+     * @param channel    canal AMQP para acknowledge manual
+     * @param deliveryTag tag de entrega da mensagem
      */
     @RabbitListener(queues = "${rabbitmq.queue.pedido-novo}")
-    public void receberNovoPedido(
+    public void receberEventoPedido(
             PedidoEntregaRequestDTO requestDTO,
             Channel channel,
             @Header(AmqpHeaders.DELIVERY_TAG) long deliveryTag) {
 
+        log.info("[Canal event-notificacao] Evento recebido. idPedido: {} - status: {}",
+                requestDTO.getId(), requestDTO.getStatus());
 
+        // Filtrar: só processar quando o pedido está pronto para entrega
+        if (!STATUS_PRONTO_PARA_ENTREGA.equals(requestDTO.getStatus())) {
+            log.debug("[Canal event-notificacao] Status '{}' ignorado para idPedido: {}. "
+                    + "Somente PRONTO_PARA_ENTREGA cria registro de entrega.",
+                    requestDTO.getStatus(), requestDTO.getId());
+            ackSilently(channel, deliveryTag);
+            return;
+        }
 
-        log.info("Pedido recebido via fila. idPedido: {} - idCliente: {}",
-                requestDTO.getId(), requestDTO.getIdCliente());
+        processarPedidoProntoParaEntrega(requestDTO, channel, deliveryTag, "event-notificacao");
+    }
+
+    // -------------------------------------------------------------------------
+    // Lógica compartilhada de processamento
+    // -------------------------------------------------------------------------
+
+    /**
+     * Processa um pedido pronto para entrega, criando o registro no sistema.
+     *
+     * @param requestDTO  dados do pedido
+     * @param channel     canal AMQP
+     * @param deliveryTag tag da mensagem
+     * @param origem      identificador do canal de origem (para logging)
+     */
+    private void processarPedidoProntoParaEntrega(
+            PedidoEntregaRequestDTO requestDTO,
+            Channel channel,
+            long deliveryTag,
+            String origem) {
 
         try {
             pedidoEntregaService.criarPedido(requestDTO);
 
-            log.info("Pedido processado com sucesso. idPedido: {}", requestDTO.getId());
-            channel.basicAck(deliveryTag, false);
+            log.info("[{}] Pedido registrado com sucesso para entrega. idPedido: {}",
+                    origem, requestDTO.getId());
+            ackSilently(channel, deliveryTag);
 
         } catch (PedidoDuplicadoException e) {
-            log.warn("Pedido duplicado ignorado. idPedido: {} - Mensagem descartada da fila. Detalhe: {}",
-                    requestDTO.getId(), e.getMessage());
-            // Descarta a mensagem sem reprocessamento (requeue=false)
+            log.warn("[{}] Pedido duplicado ignorado. idPedido: {} – Detalhe: {}",
+                    origem, requestDTO.getId(), e.getMessage());
+            // Descarta sem requeue: o pedido já foi registrado pelo outro canal
             rejectMessage(channel, deliveryTag, false);
 
         } catch (Exception e) {
-            log.error("Erro inesperado ao processar pedido. idPedido: {} - Erro: {}",
-                    requestDTO.getId(), e.getMessage(), e);
-            // Rejeita e devolve à fila para nova tentativa (requeue=true)
+            log.error("[{}] Erro inesperado ao processar pedido. idPedido: {} – Erro: {}",
+                    origem, requestDTO.getId(), e.getMessage(), e);
+            // Rejeita e recoloca na fila para nova tentativa
             rejectMessage(channel, deliveryTag, true);
         }
     }
 
     /**
-     * Rejeita uma mensagem AMQP de forma segura, capturando eventuais
-     * IOExceptions.
+     * Confirma (ack) uma mensagem de forma silenciosa, capturando IOExceptions.
+     */
+    private void ackSilently(Channel channel, long deliveryTag) {
+        try {
+            channel.basicAck(deliveryTag, false);
+        } catch (IOException e) {
+            log.error("Falha ao confirmar mensagem (deliveryTag={}): {}",
+                    deliveryTag, e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Rejeita uma mensagem AMQP de forma segura, capturando eventuais IOExceptions.
      *
-     * @param channel canal AMQP
+     * @param channel     canal AMQP
      * @param deliveryTag tag da mensagem
-     * @param requeue true para devolver à fila, false para descartar
+     * @param requeue     true para devolver à fila, false para descartar
      */
     private void rejectMessage(Channel channel, long deliveryTag, boolean requeue) {
         try {

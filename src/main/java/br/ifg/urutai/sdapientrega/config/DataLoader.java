@@ -4,17 +4,15 @@ import java.util.List;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.stereotype.Component;
 
-import br.ifg.urutai.sdapientrega.consumer.PedidoEntregaConsumer;
 import br.ifg.urutai.sdapientrega.entity.PedidoEntrega;
 import br.ifg.urutai.sdapientrega.enums.PedidoStatus;
 import br.ifg.urutai.sdapientrega.repository.PedidoEntregaRepository;
 import br.ifg.urutai.sdapientrega.service.PedidoEmEntregaCacheService;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 
 /**
  * Componente responsável por realizar a carga inicial de dados no banco H2 ao
@@ -23,15 +21,20 @@ import lombok.extern.slf4j.Slf4j;
  * Insere pedidos de exemplo com diferentes status e, em seguida, sincroniza o
  * cache em memória com os dados persistidos.
  */
-@Slf4j
 @Component
-@RequiredArgsConstructor
 public class DataLoader implements ApplicationRunner {
 
-    private PedidoEntregaRepository pedidoEntregaRepository;
-    private PedidoEmEntregaCacheService pedidoEmEntregaCacheService;
+    private static final Logger log = LoggerFactory.getLogger(DataLoader.class);
 
-    private Logger log = LoggerFactory.getLogger(PedidoEntregaConsumer.class);
+    private final PedidoEntregaRepository pedidoEntregaRepository;
+    private final PedidoEmEntregaCacheService pedidoEmEntregaCacheService;
+
+    @Autowired
+    public DataLoader(PedidoEntregaRepository pedidoEntregaRepository,
+                      PedidoEmEntregaCacheService pedidoEmEntregaCacheService) {
+        this.pedidoEntregaRepository = pedidoEntregaRepository;
+        this.pedidoEmEntregaCacheService = pedidoEmEntregaCacheService;
+    }
 
     @Override
     public void run(ApplicationArguments args) {
@@ -63,10 +66,10 @@ public class DataLoader implements ApplicationRunner {
     /**
      * Cria um PedidoEntrega com os dados fornecidos.
      *
-     * @param idPedido ID do pedido no serviço de origem (sd-api-pedido)
-     * @param idCliente ID do cliente
+     * @param idPedido   ID do pedido no serviço de origem (sd-api-pedido)
+     * @param idCliente  ID do cliente
      * @param valorTotal valor total do pedido em centavos
-     * @param status status inicial do pedido
+     * @param status     status inicial do pedido
      * @return PedidoEntrega configurado
      */
     private PedidoEntrega criarPedido(Long idPedido, Long idCliente, int valorTotal, PedidoStatus status) {

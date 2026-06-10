@@ -220,6 +220,14 @@ public class PedidoEntregaService {
         try {
             switch (pedido.getStatus()) {
                 case SAIU_PARA_ENTREGA:
+                    // Publica para sd-api-notificacao via event-notificacao exchange
+                    notificacaoProducer.enviarEventoParaNotificacao(
+                            pedido.getIdPedido(),
+                            pedido.getIdCliente(),
+                            "SAIU_PARA_ENTREGA",
+                            pedido.getValorTotal());
+
+                    // Publica para entrega.topic.exchange (fila interna entrega.notificacao.queue)
                     NotificacaoDTO notificacaoSaida = NotificacaoDTO.builder()
                             .idPedido(pedido.getIdPedido())
                             .idCliente(pedido.getIdCliente())
@@ -227,11 +235,18 @@ public class PedidoEntregaService {
                             .tipoEvento("SAIU_PARA_ENTREGA")
                             .timestamp(System.currentTimeMillis())
                             .build();
-
                     notificacaoProducer.enviarNotificacaoSaidaEntrega(notificacaoSaida);
                     break;
 
                 case ENTREGUE:
+                    // Publica para sd-api-notificacao via event-notificacao exchange
+                    notificacaoProducer.enviarEventoParaNotificacao(
+                            pedido.getIdPedido(),
+                            pedido.getIdCliente(),
+                            "ENTREGUE",
+                            pedido.getValorTotal());
+
+                    // Publica para entrega.topic.exchange (fila interna entrega.notificacao.queue)
                     NotificacaoDTO notificacaoEntregue = NotificacaoDTO.builder()
                             .idPedido(pedido.getIdPedido())
                             .idCliente(pedido.getIdCliente())
@@ -239,18 +254,24 @@ public class PedidoEntregaService {
                             .tipoEvento("ENTREGUE")
                             .timestamp(System.currentTimeMillis())
                             .build();
-
                     notificacaoProducer.enviarNotificacaoEntregue(notificacaoEntregue);
                     break;
 
                 default:
+                    // Publica para sd-api-notificacao via event-notificacao exchange
+                    notificacaoProducer.enviarEventoParaNotificacao(
+                            pedido.getIdPedido(),
+                            pedido.getIdCliente(),
+                            pedido.getStatus().name(),
+                            pedido.getValorTotal());
+
+                    // Publica para entrega.topic.exchange (fila interna entrega.status.queue)
                     NotificacaoDTO notificacaoGenerica = NotificacaoDTO.builder()
                             .idPedido(pedido.getIdPedido())
                             .idCliente(pedido.getIdCliente())
                             .tipoEvento(pedido.getStatus().name())
                             .timestamp(System.currentTimeMillis())
                             .build();
-
                     notificacaoProducer.enviarAtualizacaoStatus(notificacaoGenerica);
                     break;
             }
