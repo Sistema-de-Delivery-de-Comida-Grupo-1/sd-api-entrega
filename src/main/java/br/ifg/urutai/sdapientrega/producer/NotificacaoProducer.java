@@ -100,6 +100,7 @@ public class NotificacaoProducer {
         }
     }
 
+    
     /**
      * Envia notificação quando o pedido é entregue.
      * Routing key: {@code entrega.notificacao.entregue}
